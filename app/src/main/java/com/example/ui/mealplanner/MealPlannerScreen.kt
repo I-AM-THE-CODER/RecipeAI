@@ -27,6 +27,7 @@ import com.example.data.repository.RecipeRepository
 import com.example.data.repository.ShoppingRepository
 import com.example.ui.components.EmptyStateView
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,12 +60,12 @@ fun MealPlannerScreen(
         if (allPlans.isEmpty()) {
             val rec1 = availableRecipes.getOrNull(0)
             val rec2 = availableRecipes.getOrNull(1)
-            val seedDate = currentMonday.plusDays(2).toString()
+            val seedDate = LocalDate.now().toString()
             if (rec1 != null) {
-                mealPlanRepository.addRecipeToMealPlan(seedDate, "Lunch", rec1)
+                mealPlanRepository.addRecipeToMealPlan(seedDate, "Lunch", rec1, servesWho = "Noah")
             }
             if (rec2 != null) {
-                mealPlanRepository.addRecipeToMealPlan(seedDate, "Dinner", rec2)
+                mealPlanRepository.addRecipeToMealPlan(seedDate, "Dinner", rec2, servesWho = "Family (4)")
             }
         }
     }
@@ -87,9 +88,9 @@ fun MealPlannerScreen(
                                         val bRec = availableRecipes[(i * 3) % availableRecipes.size]
                                         val lRec = availableRecipes[(i * 3 + 1) % availableRecipes.size]
                                         val dRec = availableRecipes[(i * 3 + 2) % availableRecipes.size]
-                                        mealPlanRepository.addRecipeToMealPlan(dateStr, "Breakfast", bRec)
-                                        mealPlanRepository.addRecipeToMealPlan(dateStr, "Lunch", lRec)
-                                        mealPlanRepository.addRecipeToMealPlan(dateStr, "Dinner", dRec)
+                                        mealPlanRepository.addRecipeToMealPlan(dateStr, "Breakfast", bRec, servesWho = "Noah")
+                                        mealPlanRepository.addRecipeToMealPlan(dateStr, "Lunch", lRec, servesWho = "Partner & Noah")
+                                        mealPlanRepository.addRecipeToMealPlan(dateStr, "Dinner", dRec, servesWho = "Family (4)")
                                     }
                                     snackbarHostState.showSnackbar("AI Chef auto-planned your entire 7-day week! 🍽️")
                                 }
@@ -267,11 +268,26 @@ fun MealPlannerScreen(
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis
                                             )
-                                            Text(
-                                                text = "${mealItem.calories} kcal • ${mealItem.prepTimeMinutes}m prep",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                Text(
+                                                    text = "${mealItem.calories} kcal • ${mealItem.prepTimeMinutes}m prep",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                                Surface(
+                                                    shape = RoundedCornerShape(6.dp),
+                                                    color = MaterialTheme.colorScheme.primaryContainer
+                                                ) {
+                                                    Text(
+                                                        text = "👤 ${mealItem.servesWho}",
+                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                        fontWeight = FontWeight.SemiBold
+                                                    )
+                                                }
+                                            }
                                         }
 
                                         IconButton(
@@ -301,42 +317,61 @@ fun MealPlannerScreen(
 
         // Add Meal Dialog
         if (showAddMealDialog) {
+            var selectedServesWho by remember { mutableStateOf("Family") }
+            val servesOptions = listOf("Family", "Noah", "Kids", "Guests", "Partner", "Self")
+
             AlertDialog(
                 onDismissRequest = { showAddMealDialog = false },
                 title = { Text("Add Recipe to $selectedMealType") },
                 text = {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(300.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(availableRecipes) { recipe ->
-                            Surface(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable {
-                                        scope.launch {
-                                            mealPlanRepository.addRecipeToMealPlan(
-                                                selectedDateString,
-                                                selectedMealType,
-                                                recipe
-                                            )
-                                            showAddMealDialog = false
-                                        }
-                                    },
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                    Column {
+                        Text("Who is this meal for?", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(6.dp))
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            items(servesOptions) { option ->
+                                FilterChip(
+                                    selected = selectedServesWho == option,
+                                    onClick = { selectedServesWho = option },
+                                    label = { Text(option) }
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(260.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(availableRecipes) { recipe ->
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .clickable {
+                                            scope.launch {
+                                                mealPlanRepository.addRecipeToMealPlan(
+                                                    selectedDateString,
+                                                    selectedMealType,
+                                                    recipe,
+                                                    servesWho = selectedServesWho
+                                                )
+                                                showAddMealDialog = false
+                                            }
+                                        },
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                                 ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(recipe.title, fontWeight = FontWeight.Bold)
-                                        Text("${recipe.calories} kcal", style = MaterialTheme.typography.labelSmall)
+                                    Row(
+                                        modifier = Modifier.padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(recipe.title, fontWeight = FontWeight.Bold)
+                                            Text("${recipe.calories} kcal • ${recipe.totalTimeMinutes} mins", style = MaterialTheme.typography.labelSmall)
+                                        }
+                                        Icon(Icons.Default.Add, contentDescription = null)
                                     }
-                                    Icon(Icons.Default.Add, contentDescription = null)
                                 }
                             }
                         }

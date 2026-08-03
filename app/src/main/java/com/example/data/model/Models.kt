@@ -63,7 +63,8 @@ data class MealPlanItem(
     val recipeTitle: String,
     val recipeImageUrl: String,
     val calories: Int,
-    val prepTimeMinutes: Int
+    val prepTimeMinutes: Int,
+    val servesWho: String = "Family"
 )
 
 @Entity(tableName = "favorite_recipes")

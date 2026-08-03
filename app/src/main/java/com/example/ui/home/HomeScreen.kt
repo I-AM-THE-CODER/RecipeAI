@@ -28,15 +28,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.data.model.Recipe
+import com.example.data.model.MealPlanItem
 import com.example.data.repository.RecipeRepository
+import com.example.data.repository.MealPlanRepository
 import com.example.ui.components.CategoryFilterChip
 import com.example.ui.components.RecipeCard
 import com.example.ui.components.SectionHeader
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 @Composable
 fun HomeScreen(
     recipeRepository: RecipeRepository,
+    mealPlanRepository: MealPlanRepository? = null,
     onRecipeClick: (String) -> Unit,
     onSearchClick: () -> Unit,
     onAiStudioClick: () -> Unit,
@@ -47,6 +52,12 @@ fun HomeScreen(
     val scope = rememberCoroutineScope()
     var recipes by remember { mutableStateOf<List<Recipe>>(emptyList()) }
     var selectedCategory by remember { mutableStateOf("All") }
+
+    val todayDateStr = remember { LocalDate.now().toString() }
+    val allMealPlans by (mealPlanRepository?.allMealPlans ?: MutableStateFlow(emptyList())).collectAsState(initial = emptyList())
+    val todayMealPlans = remember(allMealPlans, todayDateStr) {
+        allMealPlans.filter { it.dateString == todayDateStr }
+    }
 
     LaunchedEffect(Unit) {
         recipes = recipeRepository.searchRecipes()
@@ -186,7 +197,128 @@ fun HomeScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Today's Cooking & Household Servings Briefing Card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.SoupKitchen, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text("Today's Cooking Schedule 👨‍🍳", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text("Meals to prepare & who they are for", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+
+                    TextButton(onClick = onMealPlannerClick) {
+                        Text("Planner >", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                if (todayMealPlans.isEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("No meals scheduled for today", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                            Text("Tap to auto-plan or pick recipes for your household.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        FilledTonalButton(onClick = onMealPlannerClick) {
+                            Text("Plan Today")
+                        }
+                    }
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        todayMealPlans.forEach { meal ->
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable { onRecipeClick(meal.recipeId) },
+                                color = MaterialTheme.colorScheme.surface,
+                                shadowElevation = 1.dp
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    val icon = when (meal.mealType.lowercase()) {
+                                        "breakfast" -> "🌅"
+                                        "lunch" -> "☀️"
+                                        "dinner" -> "🌙"
+                                        else -> "☕"
+                                    }
+                                    Text(icon, style = MaterialTheme.typography.titleMedium)
+                                    Spacer(modifier = Modifier.width(10.dp))
+
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "${meal.mealType.uppercase()} • ${meal.recipeTitle}",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            Text(
+                                                text = "${meal.calories} kcal • ${meal.prepTimeMinutes}m prep",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = MaterialTheme.colorScheme.primaryContainer
+                                            ) {
+                                                Text(
+                                                    text = "👤 For: ${meal.servesWho}",
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    Icon(Icons.Default.ChevronRight, contentDescription = "Start", tint = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
 
         // Hero Banner Card
         Card(

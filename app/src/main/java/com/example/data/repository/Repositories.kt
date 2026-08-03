@@ -384,7 +384,7 @@ class MealPlanRepository(
         return database.mealPlanDao().getMealPlansForDate(dateString)
     }
 
-    suspend fun addRecipeToMealPlan(dateString: String, mealType: String, recipe: Recipe) = withContext(Dispatchers.IO) {
+    suspend fun addRecipeToMealPlan(dateString: String, mealType: String, recipe: Recipe, servesWho: String = "Family") = withContext(Dispatchers.IO) {
         val item = MealPlanItem(
             id = "plan_" + UUID.randomUUID().toString().take(6),
             dateString = dateString,
@@ -393,7 +393,8 @@ class MealPlanRepository(
             recipeTitle = recipe.title,
             recipeImageUrl = recipe.imageUrl,
             calories = recipe.calories,
-            prepTimeMinutes = recipe.totalTimeMinutes
+            prepTimeMinutes = recipe.totalTimeMinutes,
+            servesWho = servesWho
         )
         database.mealPlanDao().insertMealPlan(item)
     }

@@ -97,7 +97,7 @@ interface PantryDao {
 
 @Database(
     entities = [ShoppingItem::class, MealPlanItem::class, FavoriteRecipeEntity::class, RecipeCollectionEntity::class, PantryItem::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

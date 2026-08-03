@@ -26,6 +26,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
@@ -61,6 +62,40 @@ fun RecipeDetailScreen(
 
     val completedSteps = remember { mutableStateListOf<Int>() }
     val checkedIngredients = remember { mutableStateListOf<Int>() }
+
+    var activeTimerSeconds by remember { mutableIntStateOf(0) }
+    var isTimerRunning by remember { mutableStateOf(false) }
+    var activeTimerStepLabel by remember { mutableStateOf("") }
+
+    var speakingStepNumber by remember { mutableStateOf<Int?>(null) }
+    var isSpeakingAudio by remember { mutableStateOf(false) }
+
+    // Active Timer Effect
+    LaunchedEffect(isTimerRunning, activeTimerSeconds) {
+        if (isTimerRunning && activeTimerSeconds > 0) {
+            kotlinx.coroutines.delay(1000L)
+            activeTimerSeconds -= 1
+            if (activeTimerSeconds == 0) {
+                isTimerRunning = false
+                snackbarHostState.showSnackbar("🔔 RING RING! $activeTimerStepLabel timer completed! ⏱️")
+            }
+        }
+    }
+
+    // Hands-Free Audio Voice Assistant Effect
+    LaunchedEffect(isSpeakingAudio, speakingStepNumber) {
+        if (isSpeakingAudio && speakingStepNumber != null) {
+            kotlinx.coroutines.delay(5000L) // Simulates voice reading step
+            val totalSteps = currentRecipe?.instructions?.size ?: 0
+            if ((speakingStepNumber ?: 0) < totalSteps) {
+                speakingStepNumber = (speakingStepNumber ?: 0) + 1
+            } else {
+                isSpeakingAudio = false
+                speakingStepNumber = null
+                snackbarHostState.showSnackbar("Finished reading all cooking steps! 👩‍🍳")
+            }
+        }
+    }
 
     LaunchedEffect(recipeId) {
         val loaded = recipeRepository.getRecipeById(recipeId)
@@ -476,17 +511,122 @@ fun RecipeDetailScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Cooking Instructions
-                Text(
-                    text = "Step-by-Step Instructions",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
+                // Cooking Instructions Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Step-by-Step Instructions",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    AssistChip(
+                        onClick = {
+                            if (isSpeakingAudio) {
+                                isSpeakingAudio = false
+                                speakingStepNumber = null
+                            } else {
+                                isSpeakingAudio = true
+                                speakingStepNumber = 1
+                            }
+                        },
+                        label = { Text(if (isSpeakingAudio) "Pause Voice" else "🔊 Read Aloud") },
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = if (isSpeakingAudio) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
+                // Active Step Timer Card
+                if (activeTimerSeconds > 0 || isTimerRunning) {
+                    val minutes = activeTimerSeconds / 60
+                    val seconds = activeTimerSeconds % 60
+                    val timeFormatted = String.format(java.util.Locale.US, "%02d:%02d", minutes, seconds)
+
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Timer, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text(
+                                        text = "$activeTimerStepLabel Timer: $timeFormatted",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                    Text(
+                                        text = if (isTimerRunning) "Counting down..." else "Paused",
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                }
+                            }
+
+                            Row {
+                                IconButton(onClick = { isTimerRunning = !isTimerRunning }) {
+                                    Icon(if (isTimerRunning) Icons.Default.Pause else Icons.Default.PlayArrow, contentDescription = null)
+                                }
+                                IconButton(onClick = {
+                                    isTimerRunning = false
+                                    activeTimerSeconds = 0
+                                }) {
+                                    Icon(Icons.Default.Close, contentDescription = "Cancel Timer")
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Active Audio Voice Assistant Banner
+                if (isSpeakingAudio && speakingStepNumber != null) {
+                    val currentStepObj = recipe.instructions.find { it.stepNumber == speakingStepNumber }
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.VolumeUp, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "🔊 Voice Guide - Step $speakingStepNumber of ${recipe.instructions.size}",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = currentStepObj?.description ?: "",
+                                style = MaterialTheme.typography.bodySmall,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+
                 recipe.instructions.forEach { step ->
                     val isDone = completedSteps.contains(step.stepNumber)
+                    val isBeingSpoken = speakingStepNumber == step.stepNumber
 
                     Card(
                         modifier = Modifier
@@ -497,7 +637,8 @@ fun RecipeDetailScreen(
                             },
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (isDone) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                            containerColor = if (isBeingSpoken) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
+                            else if (isDone) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
                             else MaterialTheme.colorScheme.surface
                         )
                     ) {
@@ -535,8 +676,11 @@ fun RecipeDetailScreen(
                                     Spacer(modifier = Modifier.weight(1f))
                                     AssistChip(
                                         onClick = {
+                                            activeTimerStepLabel = "Step ${step.stepNumber}"
+                                            activeTimerSeconds = mins * 60
+                                            isTimerRunning = true
                                             scope.launch {
-                                                snackbarHostState.showSnackbar("Timer set for $mins minutes! ⏱️")
+                                                snackbarHostState.showSnackbar("Started $mins minute countdown for Step ${step.stepNumber}! ⏱️")
                                             }
                                         },
                                         label = { Text("${mins}m Timer") },

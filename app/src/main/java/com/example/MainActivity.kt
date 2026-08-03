@@ -116,6 +116,7 @@ fun RecipeMainApp() {
             composable(Screen.Home.route) {
                 HomeScreen(
                     recipeRepository = recipeRepository,
+                    mealPlanRepository = mealPlanRepository,
                     onRecipeClick = { recipeId -> navController.navigate("recipe_detail/$recipeId") },
                     onSearchClick = { navController.navigate(Screen.Search.route) },
                     onAiStudioClick = { navController.navigate(Screen.AiStudio.route) },
