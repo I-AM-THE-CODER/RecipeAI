@@ -70,6 +70,10 @@ fun RecipeDetailScreen(
     var speakingStepNumber by remember { mutableStateOf<Int?>(null) }
     var isSpeakingAudio by remember { mutableStateOf(false) }
 
+    var showMarkCookedDialog by remember { mutableStateOf(false) }
+    var userRating by remember { mutableIntStateOf(5) }
+    var chefNoteText by remember { mutableStateOf("") }
+
     // Active Timer Effect
     LaunchedEffect(isTimerRunning, activeTimerSeconds) {
         if (isTimerRunning && activeTimerSeconds > 0) {
@@ -310,7 +314,7 @@ fun RecipeDetailScreen(
                 }
             }
 
-            // Description
+            // Description & Allergen Safety
             Column(modifier = Modifier.padding(horizontal = 20.dp)) {
                 Text(
                     text = recipe.description,
@@ -318,7 +322,53 @@ fun RecipeDetailScreen(
                     color = MaterialTheme.colorScheme.onSurface
                 )
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Allergen & Dietary Safety Chips
+                val ingNames = recipe.ingredients.map { it.name.lowercase() }
+                val containsDairy = ingNames.any { it.contains("cream") || it.contains("milk") || it.contains("cheese") || it.contains("butter") }
+                val containsGluten = ingNames.any { it.contains("flour") || it.contains("pasta") || it.contains("bread") }
+                val containsPeanuts = ingNames.any { it.contains("peanut") || it.contains("nut") }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (containsDairy) {
+                        SuggestionChip(
+                            onClick = {},
+                            label = { Text("🥛 Contains Dairy", style = MaterialTheme.typography.labelSmall) }
+                        )
+                    } else {
+                        SuggestionChip(
+                            onClick = {},
+                            label = { Text("✅ Dairy-Free", style = MaterialTheme.typography.labelSmall) }
+                        )
+                    }
+
+                    if (containsGluten) {
+                        SuggestionChip(
+                            onClick = {},
+                            label = { Text("🌾 Contains Gluten", style = MaterialTheme.typography.labelSmall) }
+                        )
+                    } else {
+                        SuggestionChip(
+                            onClick = {},
+                            label = { Text("🌾 Gluten-Free", style = MaterialTheme.typography.labelSmall) }
+                        )
+                    }
+
+                    if (containsPeanuts) {
+                        SuggestionChip(
+                            onClick = {},
+                            label = { Text("⚠️ Peanuts/Nuts", style = MaterialTheme.typography.labelSmall) }
+                        )
+                    } else {
+                        SuggestionChip(
+                            onClick = {},
+                            label = { Text("🥜 Peanut-Free", style = MaterialTheme.typography.labelSmall) }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
 
                 // AI Dietary Converter Shortcut Banner
                 Surface(
@@ -725,6 +775,35 @@ fun RecipeDetailScreen(
                         }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // Mark as Cooked & Chef Journal Button Card
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(20.dp))
+                        .clickable { showMarkCookedDialog = true },
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(20.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text("Mark as Cooked Today! 👨‍🍳", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Text("Add rating & personal chef notes to journal", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        Icon(Icons.Default.ChevronRight, contentDescription = null)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(40.dp))
             }
         }
 
@@ -866,6 +945,64 @@ fun RecipeDetailScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                 }
             }
+        }
+
+        // Mark as Cooked Dialog
+        if (showMarkCookedDialog) {
+            AlertDialog(
+                onDismissRequest = { showMarkCookedDialog = false },
+                title = { Text("Log Cooked Meal 👨‍🍳", fontWeight = FontWeight.Bold) },
+                text = {
+                    Column {
+                        Text(
+                            text = "How did ${recipe.title} turn out?",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text("Your Rating:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            (1..5).forEach { star ->
+                                IconButton(onClick = { userRating = star }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Star,
+                                        contentDescription = "$star Stars",
+                                        tint = if (star <= userRating) Color(0xFFFFB300) else Color.LightGray
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = chefNoteText,
+                            onValueChange = { chefNoteText = it },
+                            label = { Text("Chef's Notes (Optional)") },
+                            placeholder = { Text("e.g. Added extra garlic & chili flakes! Loved by everyone.") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showMarkCookedDialog = false
+                            scope.launch {
+                                snackbarHostState.showSnackbar("Logged '${recipe.title}' ($userRating/5 ⭐) to your Cooking Journal! 🎉")
+                            }
+                        }
+                    ) {
+                        Text("Save Journal Entry")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showMarkCookedDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
         }
     }
 }

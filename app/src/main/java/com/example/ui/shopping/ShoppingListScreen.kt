@@ -155,22 +155,62 @@ fun ShoppingListScreen(
             if (selectedTabIndex == 0) {
                 // Shopping List View
                 if (totalCount > 0) {
+                    val getEstimatedPrice: (ShoppingItem) -> Double = { item ->
+                        when (item.category) {
+                            "Meat & Seafood" -> 6.99 * item.amount.coerceAtLeast(1.0)
+                            "Dairy & Eggs" -> 3.49 * item.amount.coerceAtLeast(1.0)
+                            "Produce" -> 2.49 * item.amount.coerceAtLeast(1.0)
+                            "Spices & Oils" -> 4.29 * item.amount.coerceAtLeast(1.0)
+                            else -> 2.99 * item.amount.coerceAtLeast(1.0)
+                        }
+                    }
+
+                    val totalEstimatedCost = items.sumOf { getEstimatedPrice(it) }
+                    val remainingCost = items.filter { !it.isCompleted }.sumOf { getEstimatedPrice(it) }
+                    val savedCost = totalEstimatedCost - remainingCost
+
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 8.dp),
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f))
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f))
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.AttachMoney, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Estimated Budget", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                }
+                                Text(
+                                    text = String.format(java.util.Locale.US, "Remaining: $%.2f", remainingCost),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text("Aisle Progress", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                                Text("$completedCount of $totalCount items", style = MaterialTheme.typography.labelMedium)
+                                Text(
+                                    text = String.format(java.util.Locale.US, "Total List: $%.2f • Saved: $%.2f", totalEstimatedCost, savedCost),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text("$completedCount of $totalCount items", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
                             }
+
                             Spacer(modifier = Modifier.height(8.dp))
+
                             LinearProgressIndicator(
                                 progress = { progress },
                                 modifier = Modifier

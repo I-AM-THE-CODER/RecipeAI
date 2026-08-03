@@ -313,6 +313,40 @@ fun HomeScreen(
                                 }
                             }
                         }
+
+                        // Macro & Calorie Summary
+                        val totalCals = todayMealPlans.sumOf { it.calories }
+                        val estProtein = (totalCals * 0.22 / 4).toInt() // Rough estimation for visualization
+                        val targetCals = 2000
+
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surface,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.LocalFireDepartment, contentDescription = null, tint = Color(0xFFFF6D00), modifier = Modifier.size(20.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Column {
+                                        Text("Daily Nutrition Progress", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                        Text("$totalCals / $targetCals kcal • ~${estProtein}g Protein", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+
+                                CircularProgressIndicator(
+                                    progress = { (totalCals.toFloat() / targetCals).coerceIn(0f, 1f) },
+                                    modifier = Modifier.size(28.dp),
+                                    strokeWidth = 3.dp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
                     }
                 }
             }
